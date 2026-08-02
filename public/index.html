@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GadgetGuide — buy the right gadget, done</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient"><span></span><span></span><span></span></div>
+  <div class="custom-bg" id="customBg"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <button class="mark avatar-btn" id="avatarBtn" title="your profile">?</button>
+        <button class="new-chat-btn" id="newChatBtn">+ new chat</button>
+      </div>
+      <div class="convo-list" id="convoList"></div>
+      <div class="sidebar-bottom">
+        <button class="icon-btn full-w" id="ordersBtn">orders</button>
+        <button class="icon-btn full-w" id="appSettingsBtn">settings</button>
+        <button class="icon-btn full-w" id="logoutBtn">log out</button>
+      </div>
+      <div class="credit-line">made with <span class="heart">♥</span> by <span id="creditName"></span></div>
+    </aside>
+
+    <div class="frame">
+      <header class="topbar">
+        <button class="icon-btn sidebar-toggle" id="sidebarToggle">☰</button>
+        <div class="topbar-text">
+          <div class="title">gadgetguide</div>
+          <div class="subtitle" id="greeting">tell it what you need — it finds it, checks it, buys it</div>
+        </div>
+        <button class="limit-pill" id="limitPill" title="click to change your spend limit">limit ₹60,000</button>
+      </header>
+
+      <main class="chat" id="chat"></main>
+      <div id="pravaContainer" style="display:none; padding: 0 28px 18px 28px;"></div>
+      <div class="orders-panel" id="ordersPanel" style="display:none;"></div>
+
+      <form class="composer" id="composer">
+        <input id="input" type="text" placeholder="e.g. laptop for engineering, ₹60k, mostly coding" autocomplete="off" />
+        <button type="submit">send</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-title">spend limit</div>
+      <p class="modal-sub">the agent will ask before buying anything over this amount.</p>
+      <div class="modal-input-row">
+        <span>₹</span>
+        <input type="number" id="spendLimitInput" min="1" step="1000" />
+      </div>
+      <div class="auth-error" id="spendLimitError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="settingsCancel">cancel</button>
+        <button class="btn primary" id="settingsSave">save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="appSettingsModal" style="display:none;">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-title">settings</div>
+      <div class="settings-tabs">
+        <button class="tab-btn active" data-settings-tab="display">display</button>
+        <button class="tab-btn" data-settings-tab="cards">cards</button>
+      </div>
+
+      <div class="settings-tab-panel active" id="displayTab">
+        <p class="modal-sub" style="margin-bottom:12px;">color theme</p>
+        <div class="palette-swatches" id="paletteSwatches">
+          <button class="palette-swatch" data-palette="sage" title="sage"><span class="palette-swatch-inner" style="background:linear-gradient(135deg,#6f9c7d,#9d8ce0);"></span></button>
+          <button class="palette-swatch" data-palette="lavender" title="lavender"><span class="palette-swatch-inner" style="background:linear-gradient(135deg,#8b6fd0,#6fa0d0);"></span></button>
+          <button class="palette-swatch" data-palette="sunset" title="sunset"><span class="palette-swatch-inner" style="background:linear-gradient(135deg,#e0703f,#d9a441);"></span></button>
+          <button class="palette-swatch" data-palette="ocean" title="ocean"><span class="palette-swatch-inner" style="background:linear-gradient(135deg,#2f8f8a,#4a7fc9);"></span></button>
+          <button class="palette-swatch" data-palette="rose" title="rose"><span class="palette-swatch-inner" style="background:linear-gradient(135deg,#c65d7b,#9d7bc9);"></span></button>
+        </div>
+
+        <div class="settings-row">
+          <label>mode</label>
+          <select id="modeSelect">
+            <option value="light">☀ light</option>
+            <option value="dark">☾ dark</option>
+          </select>
+        </div>
+
+        <div class="settings-row">
+          <label>custom background</label>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <label class="upload-label" style="display:inline-flex; align-items:center; justify-content:center;">
+              upload
+              <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
+            </label>
+            <button class="icon-btn" id="clearBgBtn">clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-tab-panel" id="cardsTab">
+        <p class="modal-sub" style="margin-bottom:12px;">payment credentials used with your orders. removing one only clears it from your GadgetGuide history — it doesn't delete anything from Prava's own vault.</p>
+        <button class="icon-btn" id="addCardBtn" style="margin-bottom:12px;">+ add a card</button>
+        <div id="savedCardsList"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn primary" id="appSettingsClose" style="width:100%;">done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="profileModal" style="display:none;">
+    <div class="modal-card profile-card">
+      <div class="profile-header">
+        <div class="mark profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-header-text">
+          <div class="modal-title" id="profileName">—</div>
+          <div class="modal-sub" id="profileContact">—</div>
+        </div>
+        <button class="icon-btn" id="profileCloseBtn">✕</button>
+      </div>
+
+      <div class="profile-section">
+        <div class="profile-section-title">personal information</div>
+        <div id="profileInfoView"></div>
+        <div id="profileInfoForm" class="profile-info-form" style="display:none;">
+          <label class="profile-field-label">name<input type="text" id="profileNameInput" /></label>
+          <label class="profile-field-label">email<input type="text" id="profileEmailInput" placeholder="—" /></label>
+          <label class="profile-field-label">phone<input type="text" id="profilePhoneInput" placeholder="—" /></label>
+          <div class="auth-error" id="profileFormError"></div>
+          <div class="modal-actions">
+            <button class="btn" id="profileCancelBtn">cancel</button>
+            <button class="btn primary" id="profileSaveBtn">save</button>
+          </div>
+        </div>
+        <button class="icon-btn profile-edit-btn" id="profileEditBtn">edit</button>
+      </div>
+
+      <div class="profile-section">
+        <div class="profile-section-title">orders</div>
+        <div id="profileOrders"></div>
+      </div>
+
+      <div class="profile-section">
+        <div class="profile-section-title">recommended for you</div>
+        <div id="profileRecommendation"></div>
+      </div>
+    </div>
+  </div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

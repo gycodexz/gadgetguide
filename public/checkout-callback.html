@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GadgetGuide — confirming your purchase</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient"><span></span><span></span><span></span></div>
+  <div class="auth-wrap">
+    <div class="auth-card" style="text-align:center;">
+      <div class="mark" style="margin: 0 auto 18px auto;">GG</div>
+      <h1 class="auth-title" id="statusTitle">confirming your purchase…</h1>
+      <p class="auth-sub" id="statusSub">hang tight, checking with Prava</p>
+      <div id="spinner" style="display:flex; justify-content:center; padding: 10px 0;">
+        <span class="typing-dots"><span></span><span></span><span></span></span>
+      </div>
+      <a href="/" class="btn primary" id="continueBtn" style="display:none; padding:12px; text-decoration:none;">back to chat</a>
+    </div>
+  </div>
+
+<script type="module">
+  const pending = JSON.parse(sessionStorage.getItem("gg-pending-checkout") || "null");
+  const titleEl = document.getElementById("statusTitle");
+  const subEl = document.getElementById("statusSub");
+  const spinnerEl = document.getElementById("spinner");
+  const continueBtn = document.getElementById("continueBtn");
+
+  function finish(title, sub) {
+    spinnerEl.style.display = "none";
+    titleEl.textContent = title;
+    subEl.textContent = sub;
+    continueBtn.style.display = "block";
+  }
+
+  if (!pending || !pending.sessionId) {
+    finish("nothing to confirm", "no pending checkout found — head back to chat");
+  } else {
+    (async () => {
+      const start = Date.now();
+      const timeoutMs = 90000;
+      let result;
+      let lineItem;
+      while (Date.now() - start < timeoutMs) {
+        try {
+          const res = await fetch(`/api/prava/payment-result/${pending.sessionId}`);
+          result = await res.json();
+        } catch (err) {
+          result = null;
+        }
+        lineItem = result?.transactions?.[0]?.line_items?.[0];
+        const lineStatus = lineItem?.status;
+        // The real success/failure signal lives on the line item, not the top-level session status
+        // (top-level status stays "awaiting_result" even after the credential is issued).
+        if (lineStatus === "credentials_generated" || lineStatus === "failed" || lineStatus === "declined") break;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+
+      sessionStorage.removeItem("gg-pending-checkout");
+
+      async function appendToConversation(role, content) {
+        if (!pending.conversationId) return;
+        try {
+          const convoRes = await fetch(`/api/conversations/${pending.conversationId}`);
+          const convo = await convoRes.json();
+          const messages = [...(convo.messages || []), { role, content }];
+          await fetch(`/api/conversations/${pending.conversationId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages }),
+          });
+        } catch (err) {
+          // best-effort — if this fails, the callback page's own status message still told the user what happened
+        }
+      }
+
+      if (!lineItem || lineItem.status !== "credentials_generated") {
+        const reason = lineItem?.error?.message || lineItem?.status || "it may have timed out or failed — try again from chat";
+        finish(pending.type === "addCard" ? "couldn't save the card" : "payment didn't complete", reason);
+        if (pending.type !== "addCard") {
+          await appendToConversation("assistant", `Something went wrong completing the purchase: ${reason}`);
+        }
+        return;
+      }
+
+      if (pending.type === "addCard") {
+        await fetch("/api/saved-cards/from-credential", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: lineItem }),
+        });
+        finish("card saved", `•••• ${lineItem?.token?.slice(-4) || "----"} is now saved to your account — no purchase was made.`);
+        return;
+      }
+
+      await fetch("/api/orders/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ laptopId: pending.laptopId, amount: pending.amount, credential: lineItem }),
+      });
+
+      finish("purchase complete", `${pending.laptopLabel} — ₹${pending.amount.toLocaleString("en-IN")}, credential ending in ${lineItem?.token?.slice(-4) || "----"}`);
+      await appendToConversation("assistant", `Done — ${pending.laptopLabel} purchased for ₹${pending.amount.toLocaleString("en-IN")} via Prava. Credential issued ending in ${lineItem?.token?.slice(-4) || "----"}.`);
+    })();
+  }
+</script>
+</body>
+</html>

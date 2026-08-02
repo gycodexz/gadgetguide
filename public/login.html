@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GadgetGuide — sign in</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient"><span></span><span></span><span></span></div>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="mark" style="margin-bottom:18px;">GG</div>
+      <h1 class="auth-title">gadgetguide</h1>
+      <p class="auth-sub">sign in to track your orders and let the agent buy for you</p>
+
+      <div class="auth-tabs">
+        <button class="tab-btn active" data-tab="login">log in</button>
+        <button class="tab-btn" data-tab="signup">sign up</button>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <input id="name" type="text" placeholder="name" style="display:none;" />
+        <input id="identifier" type="text" placeholder="email or phone number" required />
+        <input id="password" type="password" placeholder="password" required />
+        <div class="auth-error" id="authError"></div>
+        <button type="submit" class="btn primary" style="width:100%; padding:12px;">log in</button>
+      </form>
+
+      <div style="text-align:center; margin-top:16px;">
+        <a href="#" id="forgotLink" style="color:var(--muted); font-size:12.5px;">forgot password?</a>
+      </div>
+
+      <div id="forgotBox" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 8px 0;">enter the email or phone you signed up with. for this demo, the reset link will print in the server's terminal instead of a real inbox.</p>
+        <input id="forgotIdentifier" type="text" placeholder="email or phone number" style="width:100%; margin-bottom:8px;" class="auth-form-input" />
+        <button id="forgotSubmit" class="btn" style="width:100%; padding:10px;">send reset link</button>
+        <div id="forgotMsg" style="font-size:12px; color:var(--sage); margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let mode = "login";
+  const tabs = document.querySelectorAll(".tab-btn");
+  const nameField = document.getElementById("name");
+  const submitBtn = document.querySelector("#authForm button[type=submit]");
+  const errorEl = document.getElementById("authError");
+
+  tabs.forEach((tab) => {
+    tab.onclick = () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      mode = tab.dataset.tab;
+      nameField.style.display = mode === "signup" ? "block" : "none";
+      submitBtn.textContent = mode === "signup" ? "sign up" : "log in";
+      errorEl.textContent = "";
+    };
+  });
+
+  document.getElementById("forgotLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    const box = document.getElementById("forgotBox");
+    box.style.display = box.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("forgotIdentifier").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); document.getElementById("forgotSubmit").click(); }
+  });
+
+  document.getElementById("forgotSubmit").addEventListener("click", async () => {
+    const identifier = document.getElementById("forgotIdentifier").value.trim();
+    const msgEl = document.getElementById("forgotMsg");
+    if (!identifier) return;
+    const res = await fetch("/api/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier }),
+    });
+    const data = await res.json();
+    msgEl.textContent = data.message;
+  });
+
+  document.getElementById("authForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorEl.textContent = "";
+    const identifier = document.getElementById("identifier").value.trim();
+    const password = document.getElementById("password").value;
+    const name = document.getElementById("name").value.trim();
+
+    const endpoint = mode === "signup" ? "/api/signup" : "/api/login";
+    const body = mode === "signup" ? { identifier, password, name } : { identifier, password };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent =
+          data.error === "user_exists" ? "An account with that email/phone already exists — try logging in instead." :
+          data.error === "invalid_credentials" ? "Incorrect email/phone or password." :
+          "Something went wrong. Please try again.";
+        return;
+      }
+      window.location.href = "/";
+    } catch (err) {
+      errorEl.textContent = "Couldn't reach the server. Is it running?";
+    }
+  });
+</script>
+</body>
+</html>
